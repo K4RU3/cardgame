@@ -34,6 +34,9 @@ type ScriptAPI = {
     unref: (ref: number) => GameObject;
     value: GameEvent['value'];
     selfRef: number;
+    createCard: (arg?: {
+        state?: stateType, script?: ScriptData[], weight?: number
+    }) => Card;
 };
 
 type ScriptData = {
@@ -168,6 +171,9 @@ export class GameManager {
             unref: (ref: number) => this.getById(ref) as GameObject,
             value: event.value,
             selfRef: -1,
+            createCard: (arg?: {
+                state?: stateType, script?: ScriptData[], weight?: number
+            }) => this.createCard(arg),
         };
 
         return baseAPI;
@@ -518,11 +524,10 @@ export class Player extends GameObject {
         }, this.id);
 
         if (!isCanceled && updatedEvent.type === 'draw') {
-            this.#inventory.push(updatedEvent.value.cardRef);
+            this.addInventory(updatedEvent.value.cardRef);
         }
 
         afterScript();
-        this.addInventory(randomClonedCard.id);
 
         return randomClonedCard.id;
     }
@@ -581,7 +586,7 @@ export class Player extends GameObject {
 
         if (!isCanceled && updatedEvent.type === 'attack') {
             const target = this.managerRef.deref()!.getById(updatedEvent.value.targetRef) as Player;
-            target?.damage(amount, this.id);
+            target?.damage?.(amount, this.id);
         }
 
         afterScript();
@@ -601,7 +606,7 @@ export class Player extends GameObject {
                 usingCardRef: cardRef,
                 targetRef: targetRef,
             }
-        }, this.id);
+        }, card.id);
 
         afterScript();
     }
