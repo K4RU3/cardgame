@@ -23,7 +23,6 @@ export type GameEvent =
     | { type: 'removeScript'; value: { scriptParentRef: number, name: string } }
 
     // アクション
-    | { type: 'use'; value: { playerRef: number; cardRef: number } }
     | { type: 'custom'; value: { name: string; value: any } };
 
 const UNCALLABLE_EVENT: GameEvent['type'][] = ['registerobject'];
@@ -172,13 +171,6 @@ export class GameManager {
         };
 
         return baseAPI;
-    }
-
-    #margeScriptAPI(api: ScriptAPI, event: GameEvent): GameEvent {
-        return {
-            type: event.type,
-            value: api.value
-        } as typeof event
     }
 
     getById(id: number): GameObject | null {
@@ -594,6 +586,24 @@ export class Player extends GameObject {
 
         afterScript();
         return true;
+    }
+
+    use(cardRef: number, targetRef: number) {
+        const card = this.managerRef.deref()!.getById(cardRef) as Card;
+        if (!card) {
+            return;
+        }
+
+        const [isCanceled, updatedEvent, afterScript] = this.managerRef.deref()!.callEvent({
+            type: 'use',
+            value: {
+                playerRef: this.id,
+                usingCardRef: cardRef,
+                targetRef: targetRef,
+            }
+        }, this.id);
+
+        afterScript();
     }
 }
 
