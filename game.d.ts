@@ -1,19 +1,31 @@
-export type GameEvent =
-    | { type: 'registerobject'; value: { id: number; object: GameObject } }
-    | { type: 'gamestart'; value: {} }
-    | { type: 'gameend'; value: { winners: string[] } }
-    | { type: 'turnstart'; value: { playerRef: number } }
-    | { type: 'turnend'; value: { playerRef: number } }
-    | { type: 'attack'; value: { attackerRef: number; targetRef: number, usingCardRef: number } }
-    | { type: 'use'; value: { playerRef: number; usingCardRef: number, targetRef: number } }
-    | { type: 'draw', value: { playerRef: number; cardRef: number } }
-    | { type: 'addcard', value: { playerRef: number; cardRef: number } }
-    | { type: 'removecard', value: { playerRef: number; cardRef: number } }
-    | { type: 'heal' | 'damage' | 'recharge' | 'discharge' | 'givesanity' | 'takesanity', value: { targetRef: number; sourceRef: number, amount: number } }
-    | { type: 'changeState'; value: { stateParentRef: number; key: string; value: any } }
-    | { type: 'changeScript'; value: { scriptParentRef: number, script: ScriptData } }
-    | { type: 'removeScript'; value: { scriptParentRef: number, name: string } }
-    | { type: 'custom'; value: { name: string; value: any } };
+// イベントタイプごとの値の型を定義
+type GameEventMap = {
+    registerobject: { id: number; object: GameObject };
+    gamestart: {};
+    gameend: { winners: string[] };
+    turnstart: { playerRef: number };
+    turnend: { playerRef: number };
+    attack: { attackerRef: number; targetRef: number; usingCardRef: number };
+    use: { playerRef: number; usingCardRef: number; targetRef: number };
+    draw: { playerRef: number; cardRef: number };
+    addcard: { playerRef: number; cardRef: number };
+    removecard: { playerRef: number; cardRef: number };
+    heal: { targetRef: number; sourceRef: number; amount: number };
+    damage: { targetRef: number; sourceRef: number; amount: number };
+    recharge: { targetRef: number; sourceRef: number; amount: number };
+    discharge: { targetRef: number; sourceRef: number; amount: number };
+    givesanity: { targetRef: number; sourceRef: number; amount: number };
+    takesanity: { targetRef: number; sourceRef: number; amount: number };
+    changeState: { stateParentRef: number; key: string; value: any };
+    changeScript: { scriptParentRef: number; script: ScriptData };
+    removeScript: { scriptParentRef: number; name: string };
+    custom: { name: string; value: any };
+};
+
+// 各イベントを統一した GameEvent 型としてユニオンに変換
+type GameEvent = {
+    [K in keyof GameEventMap]: { type: K; value: GameEventMap[K] };
+}[keyof GameEventMap];
 
 // スクリプトのAPI
 // スクリプト内では、apiオブジェクトを使用してアクセス
@@ -31,22 +43,25 @@ type ScriptAPI = {
     // 新規カードを作成
     // カードを作成しても、他プレイヤーにドローされることはない
     // 新しくゲームに登録することも可能
-    createCard: (arg?: {
-        state?: StateType, script?: ScriptData[], weight?: number
-    }) => Card;
+    createCard: (arg?: { state?: StateType; script?: ScriptData[]; weight?: number }) => Card;
 };
 
 type StateType = { [key: string]: any };
 // nameを一意のキーとしたスクリプト
 type ScriptData = {
     name: string;
-    scripts: Partial<Record<GameEvent['type'], {
-        // beforeスクリプトでは、apiの各値を変更可能で、イベント内容を変更可能
-        before?: string;
-        // afterスクリプトではapiは読み取り専用
-        after?: string;
-    }>>;
-}
+    scripts: Partial<
+        Record<
+            GameEvent['type'],
+            {
+                // beforeスクリプトでは、apiの各値を変更可能で、イベント内容を変更可能
+                before?: string;
+                // afterスクリプトではapiは読み取り専用
+                after?: string;
+            }
+        >
+    >;
+};
 
 declare class State {
     // ステータスのコピーを取得
@@ -111,7 +126,7 @@ declare class Player extends GameObject {
     discharge(amount: number, ref?: number): void;
     givesanity(amount: number, ref?: number): void;
     takesanity(amount: number, ref?: number): void;
-    
+
     // ランダムなカードをゲームから取得してインベントリに追加
     draw(): number | null;
     // 特定のカードを追加

@@ -1,29 +1,31 @@
+// イベントタイプごとの値の型を定義
+type GameEventMap = {
+  registerobject: { id: number; object: GameObject };
+  gamestart: {};
+  gameend: { winners: string[] };
+  turnstart: { playerRef: number };
+  turnend: { playerRef: number };
+  attack: { attackerRef: number; targetRef: number; usingCardRef: number };
+  use: { playerRef: number; usingCardRef: number; targetRef: number };
+  draw: { playerRef: number; cardRef: number };
+  addcard: { playerRef: number; cardRef: number };
+  removecard: { playerRef: number; cardRef: number };
+  heal: { targetRef: number; sourceRef: number; amount: number };
+  damage: { targetRef: number; sourceRef: number; amount: number };
+  recharge: { targetRef: number; sourceRef: number; amount: number };
+  discharge: { targetRef: number; sourceRef: number; amount: number };
+  givesanity: { targetRef: number; sourceRef: number; amount: number };
+  takesanity: { targetRef: number; sourceRef: number; amount: number };
+  changeState: { stateParentRef: number; key: string; value: any };
+  changeScript: { scriptParentRef: number; script: ScriptData };
+  removeScript: { scriptParentRef: number; name: string };
+  custom: { name: string; value: any };
+};
 
-export type GameEvent =
-    | { type: 'registerobject'; value: { id: number; object: GameObject } }
-    // ゲーム進行
-    | { type: 'gamestart'; value: {} }
-    | { type: 'gameend'; value: { winners: string[] } }
-    | { type: 'turnstart'; value: { playerRef: number } }
-    | { type: 'turnend'; value: { playerRef: number } }
-
-    // ゲームアクション
-    | { type: 'attack'; value: { attackerRef: number; targetRef: number, usingCardRef: number } }
-    | { type: 'use'; value: { playerRef: number; usingCardRef: number, targetRef: number } }
-    | { type: 'draw', value: { playerRef: number; cardRef: number } }
-    | { type: 'addcard', value: { playerRef: number; cardRef: number } }
-    | { type: 'removecard', value: { playerRef: number; cardRef: number } }
-
-    // プレイヤーステータス
-    | { type: 'heal' | 'damage' | 'recharge' | 'discharge' | 'givesanity' | 'takesanity', value: { targetRef: number; sourceRef: number, amount: number } }
-
-    // 値変更
-    | { type: 'changeState'; value: { stateParentRef: number; key: string; value: any } }
-    | { type: 'changeScript'; value: { scriptParentRef: number, script: ScriptData } }
-    | { type: 'removeScript'; value: { scriptParentRef: number, name: string } }
-
-    // アクション
-    | { type: 'custom'; value: { name: string; value: any } };
+// 各イベントを統一した GameEvent 型としてユニオンに変換
+type GameEvent = {
+  [K in keyof GameEventMap]: { type: K; value: GameEventMap[K] }
+}[keyof GameEventMap];
 
 const UNCALLABLE_EVENT: GameEvent['type'][] = ['registerobject'];
 
