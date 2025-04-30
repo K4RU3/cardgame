@@ -22,6 +22,11 @@ type GameEventMap = {
     custom: { name: string; value: any };
 };
 
+type EventOf<T extends keyof GameEventMap> = {
+    type: T;
+    value: GameEventMap[T];
+};
+
 // 各イベントを統一した GameEvent 型としてユニオンに変換
 type GameEvent = {
     [K in keyof GameEventMap]: { type: K; value: GameEventMap[K] };
@@ -67,7 +72,7 @@ declare class State {
     // ステータスのコピーを取得
     get copy(): StateType;
     // ステータスの特定のキーの値を変更
-    set(key: string, value: any): void;
+    set(key: string, value: any): EventOf<'changeState'>;
 }
 
 declare class Script {
@@ -78,9 +83,9 @@ declare class Script {
     // 特定の名前でフィルタリング
     getScriptByName(name: string): ScriptData | null;
     // スクリプトの編集
-    changeScript(script: ScriptData): void;
+    changeScript(script: ScriptData): EventOf<'changeScript'>;
     // スクリプトの削除
-    removeScript(name: string): void;
+    removeScript(name: string): EventOf<'removeScript'>;
 }
 
 declare class GameObject {
@@ -119,27 +124,27 @@ declare class Player extends GameObject {
 
     // ステータス変更メソッド
     // refには、ステータスを変更する要因となるプレイヤーの参照もしくは-1
-    heal(amount: number, ref?: number): void;
+    heal(amount: number, ref?: number): EventOf<'heal'>;
     // プレイヤーへの攻撃時にdamageを利用すると、attackスクリプトを飛ばして実行する
-    damage(amount: number, ref?: number): void;
-    recharge(amount: number, ref?: number): void;
-    discharge(amount: number, ref?: number): void;
-    givesanity(amount: number, ref?: number): void;
-    takesanity(amount: number, ref?: number): void;
+    damage(amount: number, ref?: number): EventOf<'damage'>;
+    recharge(amount: number, ref?: number): EventOf<'recharge'>;
+    discharge(amount: number, ref?: number): EventOf<'discharge'>;
+    givesanity(amount: number, ref?: number): EventOf<'givesanity'>;
+    takesanity(amount: number, ref?: number): EventOf<'takesanity'>;
 
     // ランダムなカードをゲームから取得してインベントリに追加
-    draw(): number | null;
+    draw(): EventOf<'draw'> | null;
     // 特定のカードを追加
     // ゲームに未登録でも追加可能
-    addInventory(cardRef: number): void;
+    addInventory(cardRef: number): EventOf<'addcard'>;
     // インベントリからカードを削除
-    removeFromInventory(cardRef: number): void;
+    removeFromInventory(cardRef: number): EventOf<'removecard'> | null;
     // ほかのプレイヤーに攻撃をするメソッド
     // 使用するカードの参照を利用
-    attackDamage(amount: number, targetRef: number, usingCardRef: number): void;
+    attackDamage(amount: number, targetRef: number, usingCardRef: number): EventOf<'attack'> | null;
     // カードを使用
     // 使用するカードの参照もしくは-1を指定
-    use(cardRef: number, targetRef: number): void;
+    use(cardRef: number, targetRef: number): EventOf<'use'> | null;
 }
 
 declare class Card extends GameObject {
@@ -152,37 +157,29 @@ declare class Card extends GameObject {
 /*
 # スクリプトドキュメント
 
-このドキュメントは、ゲームにおけるカードスクリプトおよびカード定義形式についての仕様を示します。  
-また、LLMに対して正しくカードリストを生成させるための記述フォーマットを明確にします。
+このドキュメントは、ゲームにおけるカードスクリプト・カード定義形式の仕様を示します。  
+LLMが正しくカードリストを生成するためのフォーマットも併記しています。
 
 ---
 
 ## 概要
 
-このゲームでは、カードやキャラクターに任意のスクリプト（効果）を付与できます。  
-スクリプトはイベント駆動型で、イベントの `before` または `after` タイミングに応じた処理を記述できます。
-
-**スクリプトの記述形式は JavaScript です。**  
-すべてのスクリプト文字列は JavaScript 文として `eval` されるため、文法や記述には注意してください。
-
-LLMは主に **カードリストの生成** を担当します。  
-そのため、**カード定義形式とスクリプト構造の理解**が不可欠です。
+- スクリプトはイベント駆動型で、`before`（編集可・キャンセル可能）／`after`（読み取り専用）のタイミングに **JavaScript** を記述。
+- LLMは主に **カードリスト生成** を担当するため、カード定義形式とスクリプト構造の理解が必須。
 
 ---
 
-## カード定義の基本形式（LLM生成用）
+## カード定義の基本形式
 
 ```ts
 const cardList = [
   {
-    state: {
-      name: 'Item Name' // カード名（自由記述）
-    },
+    state: { name: 'Item Name' },
     script: [
       {
-        name: 'default', // 任意のスクリプト名
+        name: 'default',
         scripts: {
-          'use': {
+          use: {
             before: 'api.unref(api.value.attackerRef).attackDamage(20, api.value.targetRef, api.value.usingCardRef)'
           }
         }
@@ -193,11 +190,9 @@ const cardList = [
 ];
 ```
 
-### 解説
-
-- `state.name`: カードの名称。
-- `script`: 発動するスクリプト群（`ScriptData[]`）。
-- `scripts.use.before`: 使用時に発火するスクリプト（**JavaScript文字列**で記述）。
+- `state.name`: カード名  
+- `script`: 発動スクリプト群（`ScriptData[]`）  
+- `scripts.use.before`: 使用時の **JavaScript** 処理  
 
 ---
 
@@ -207,34 +202,31 @@ const cardList = [
 type ScriptData = {
   name: string;
   scripts: Partial<Record<GameEvent['type'], {
-    before?: string; // JavaScriptとして実行される
-    after?: string;  // JavaScriptとして実行される
+    before?: string;
+    after?: string;
   }>>;
 }
 ```
 
-- 各イベントに対応する処理を `before` または `after` に記述。
-- 処理はすべて **JavaScript**。
-
 ---
 
-## 利用可能な API（ScriptAPI）
+## 利用可能 API（ScriptAPI）
 
-| プロパティ | 説明 |
-|------------|------|
-| `api.isCanceled` | `before` スクリプトで `true` にするとイベントがキャンセルされる |
-| `api.type` | 現在発生しているイベントタイプ（例：`"use"`） |
-| `api.value` | イベントに付随する情報（対象IDなど） |
-| `api.selfRef` | このスクリプトを持つインスタンスのID |
-| `api.unref(ref: number)` | オブジェクトIDをインスタンスに変換（Player/Cardなど） |
-| `api.game` | 現在のゲームオブジェクト |
-| `api.createCard({...})` | 新しいカードインスタンスを作成（未登録） |
+| プロパティ            | 説明                                                         |
+|-----------------------|--------------------------------------------------------------|
+| `api.isCanceled`      | `before` で `true` → イベント中止                           |
+| `api.type`            | イベントタイプ（例：`"use"`）                                |
+| `api.value`           | イベント値オブジェクト                                       |
+| `api.selfRef`         | このスクリプトを持つオブジェクトのID                         |
+| `api.unref(id)`       | ID → `GameObject | null`                                     |
+| `api.game`            | `Game` インスタンス                                         |
+| `api.createCard({...})` | 新規 `Card` インスタンス生成（未登録）                     |
 
 ---
 
 ## 使用例
 
-### 火球（fireball）
+### Fireball（use → damage）
 
 ```ts
 {
@@ -258,7 +250,7 @@ type ScriptData = {
 }
 ```
 
-### 魔力チェック付きの重攻撃
+### Heavy Attack（attack → cancel）
 
 ```ts
 {
@@ -269,10 +261,8 @@ type ScriptData = {
       scripts: {
         attack: {
           before: `
-            const attacker = api.unref(api.value.attackerRef);
-            if (attacker && attacker.mp < 10) {
-              api.isCanceled = true;
-            }
+            const a = api.unref(api.value.attackerRef);
+            if (a && a.mp < 10) api.isCanceled = true;
           `
         }
       }
@@ -283,22 +273,33 @@ type ScriptData = {
 
 ---
 
+## 同期的なイベント結果取得例
+
+各操作メソッドは発生したイベントオブジェクトを返します。  
+これにより、`before` スクリプトで変更された最終値を呼び出し元で即座に取得できます。
+
+```ts
+// Player B が Player A を攻撃
+const ev = playerB.attackDamage(100, playerA.id, cardRef);
+// ev.value の targetRef／amount は before フック後の最終値
+// 例：リフレクトで targetRef が B に、amount が 200 など動的変更可能
+```
+
+---
+
 ## 注意点
 
-- **スクリプトはすべてJavaScriptで記述すること。**
-- `api.unref(...)` の戻り値は null の可能性があるため、使用時は null チェックを行うこと。
-- `api.createCard(...)` で生成したカードは登録されない。必要に応じて `game.registerCard(...)` を行う。
-- `before` 内では `api.value` を編集可能、`after` 内では読み取り専用。
+- **スクリプトはすべて JavaScript**  
+- `api.unref(...)` の戻り値は `null` 可能 → nullチェック必須  
+- `api.createCard(...)` で生成したカードは自動登録されない → `game.registerCard(...)` を使用  
+- `before` 内は編集可／キャンセル可、`after` 内は読み取り専用  
 
 ---
 
 ## まとめ：LLMが出力すべき構造
 
-LLMが生成するカードリストは、以下の構造を満たす必要があります：
-
-- `state.name` が設定されている
-- `script` 配列が存在し、最低限 `use` または `attack` などのイベントスクリプトが含まれている
-- スクリプトは JavaScript として記述され、`before` または `after` のタイミングに処理を書く
-
----
+1. `state.name` が必須  
+2. `script` 配列には最低限 `use` または `attack` のスクリプト  
+3. スクリプトは **JavaScript** 文字列で、`before`／`after` に記述  
+4. 同期的に返るイベントオブジェクトで動的変更も追跡可能  
 */

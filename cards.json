@@ -1,0 +1,234 @@
+const cardList = [
+  // --- 単純な攻撃カード（5枚） ---
+  {
+    state: { name: 'Strike' },
+    script: [{
+      name: 'default',
+      scripts: {
+        use: {
+          before: `
+            const target = api.unref(api.value.targetRef);
+            if (target) target.damage(10, api.value.playerRef);
+          `
+        }
+      }
+    }]
+  },
+  {
+    state: { name: 'Slash' },
+    script: [{
+      name: 'default',
+      scripts: {
+        use: {
+          before: `
+            const target = api.unref(api.value.targetRef);
+            if (target) target.damage(15, api.value.playerRef);
+          `
+        }
+      }
+    }]
+  },
+  {
+    state: { name: 'Punch' },
+    script: [{
+      name: 'default',
+      scripts: {
+        use: {
+          before: `
+            const target = api.unref(api.value.targetRef);
+            if (target) target.damage(8, api.value.playerRef);
+          `
+        }
+      }
+    }]
+  },
+  {
+    state: { name: 'Kick' },
+    script: [{
+      name: 'default',
+      scripts: {
+        use: {
+          before: `
+            const target = api.unref(api.value.targetRef);
+            if (target) target.damage(12, api.value.playerRef);
+          `
+        }
+      }
+    }]
+  },
+  {
+    state: { name: 'Elbow Bash' },
+    script: [{
+      name: 'default',
+      scripts: {
+        use: {
+          before: `
+            const target = api.unref(api.value.targetRef);
+            if (target) target.damage(11, api.value.playerRef);
+          `
+        }
+      }
+    }]
+  },
+
+  // --- 特殊な攻撃カード（2枚） ---
+  {
+    state: { name: 'Counter Strike' },
+    script: [{
+      name: 'default',
+      scripts: {
+        use: {
+          before: `
+            const player = api.unref(api.value.playerRef);
+            const card = api.unref(api.value.usingCardRef);
+            if (!player || !card) return;
+            const cardScript = card.script.getScriptByName('default');
+            if (!cardScript) return;
+            const dmgScript = cardScript.scripts.damage?.after;
+            if (!dmgScript) return;
+            player.script.changeScript({
+              name: 'counterEffect',
+              scripts: {
+                damage: { after: dmgScript }
+              }
+            });
+          `
+        },
+        damage: {
+          after: `
+            const self = api.unref(api.selfRef);
+            const attacker = api.unref(api.value.sourceRef);
+            if (self && attacker) {
+              attacker.damage(api.value.amount * 2, self.id);
+            }
+            api.unref(api.selfRef).script.removeScript('counterEffect');
+          `
+        }
+      }
+    }]
+  },
+  {
+    state: { name: 'Double Edge' },
+    script: [{
+      name: 'default',
+      scripts: {
+        use: {
+          before: `
+            const player = api.unref(api.value.playerRef);
+            const target = api.unref(api.value.targetRef);
+            if (player && target) {
+              target.damage(25, player.id);
+              player.damage(10, -1);
+            }
+          `
+        }
+      }
+    }]
+  },
+
+  // --- MPを利用する攻撃カード（3枚） ---
+  {
+    state: { name: 'Fireball' },
+    script: [{
+      name: 'default',
+      scripts: {
+        use: {
+          before: `
+            const player = api.unref(api.value.playerRef);
+            const target = api.unref(api.value.targetRef);
+            if (player && player.mp >= 5 && target) {
+              player.discharge(5);
+              target.damage(30, player.id);
+            } else {
+              api.isCanceled = true;
+            }
+          `
+        }
+      }
+    }]
+  },
+  {
+    state: { name: 'Ice Lance' },
+    script: [{
+      name: 'default',
+      scripts: {
+        use: {
+          before: `
+            const player = api.unref(api.value.playerRef);
+            const target = api.unref(api.value.targetRef);
+            if (player && player.mp >= 3 && target) {
+              player.discharge(3);
+              target.damage(20, player.id);
+            } else {
+              api.isCanceled = true;
+            }
+          `
+        }
+      }
+    }]
+  },
+  {
+    state: { name: 'Lightning Bolt' },
+    script: [{
+      name: 'default',
+      scripts: {
+        use: {
+          before: `
+            const player = api.unref(api.value.playerRef);
+            const target = api.unref(api.value.targetRef);
+            if (player && player.mp >= 7 && target) {
+              player.discharge(7);
+              target.damage(35, player.id);
+            } else {
+              api.isCanceled = true;
+            }
+          `
+        }
+      }
+    }]
+  },
+
+  // --- 回復系カード（3枚） ---
+  {
+    state: { name: 'Heal Potion' },
+    script: [{
+      name: 'default',
+      scripts: {
+        use: {
+          before: `
+            const player = api.unref(api.value.playerRef);
+            if (player) player.heal(25);
+          `
+        }
+      }
+    }]
+  },
+  {
+    state: { name: 'Mana Elixir' },
+    script: [{
+      name: 'default',
+      scripts: {
+        use: {
+          before: `
+            const player = api.unref(api.value.playerRef);
+            if (player) player.recharge(15);
+          `
+        }
+      }
+    }]
+  },
+  {
+    state: { name: 'Soothing Incense' },
+    script: [{
+      name: 'default',
+      scripts: {
+        use: {
+          before: `
+            const player = api.unref(api.value.playerRef);
+            if (player) player.givesanity(10);
+          `
+        }
+      }
+    }]
+  }
+];
