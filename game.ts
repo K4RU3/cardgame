@@ -1,6 +1,8 @@
 // イベントタイプごとの値の型を定義
 export type GameEventMap = {
     registerobject: { id: number; object: GameObject };
+    registerplayer: { id: number; object: Player };
+    registercard: { id: number; object: Card };
     gamestart: {};
     gameend: { winners: string[] };
     turnstart: { playerRef: number };
@@ -32,7 +34,7 @@ export type GameEvent = {
     [K in keyof GameEventMap]: { type: K; value: GameEventMap[K] };
 }[keyof GameEventMap];
 
-const UNCALLABLE_EVENT: GameEvent['type'][] = ['registerobject'];
+const UNCALLABLE_EVENT: GameEvent['type'][] = ['registerobject', 'registerplayer', 'registercard'];
 type StatusChangeEventType = 'heal' | 'damage' | 'recharge' | 'discharge' | 'givesanity' | 'takesanity';
 
 type ScriptAPI = {
@@ -412,11 +414,25 @@ export class Game extends GameObject {
 
     registerPlayer(player: Player) {
         this.#playersRef.push(player.id);
+        this.managerRef.deref()!.callEvent({
+            type: 'registerplayer',
+            value: {
+                id: player.id,
+                object: player,
+            },
+        }, this.id);
     }
 
     registerCard(card: Card) {
         this.#cardsRef.push(card.id);
         this.#cardWeight = this.#calcAllCardWeight();
+        this.managerRef.deref()!.callEvent({
+            type: 'registercard',
+            value: {
+                id: card.id,
+                object: card,
+            },
+        }, this.id);
     }
 
     weightedRandomClonedCard(): Card | null {
