@@ -1,5 +1,6 @@
 // イベントタイプごとの値の型を定義
 type GameEventMap = {
+    reset: {};
     registerobject: { id: number; object: GameObject };
     registerplayer: { id: number; object: Player };
     registercard: { id: number; object: Card };

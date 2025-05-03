@@ -1,5 +1,6 @@
 // イベントタイプごとの値の型を定義
 export type GameEventMap = {
+    reset: {};
     registerobject: { id: number; object: GameObject };
     registerplayer: { id: number; object: Player };
     registercard: { id: number; object: Card };
@@ -34,7 +35,7 @@ export type GameEvent = {
     [K in keyof GameEventMap]: { type: K; value: GameEventMap[K] };
 }[keyof GameEventMap];
 
-const UNCALLABLE_EVENT: GameEvent['type'][] = ['registerobject', 'registerplayer', 'registercard'];
+const UNCALLABLE_EVENT: GameEvent['type'][] = ['registerobject', 'registerplayer', 'registercard', 'reset'];
 type StatusChangeEventType = 'heal' | 'damage' | 'recharge' | 'discharge' | 'givesanity' | 'takesanity';
 
 type ScriptAPI = {
@@ -70,6 +71,7 @@ export class GameManager {
     }
 
     #reset(callback: (event: GameEvent) => void) {
+        callback({ type: 'reset', value: {} });
         this.#objects = [];
         this.#eventCallback = callback;
         this.#gameid = this.#allocateId();
@@ -100,7 +102,7 @@ export class GameManager {
 
     callEvent(event: GameEvent, selfRef: number): [boolean, GameEvent, () => void] {
         if (UNCALLABLE_EVENT.includes(event.type)) {
-            this.#eventCallback(JSON.parse(JSON.stringify(event)));
+            this.#eventCallback(event);
             return [false, event, () => {}];
         }
 

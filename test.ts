@@ -1,7 +1,7 @@
 import * as CardGame from './game';
 
 const manager = new CardGame.GameManager((event: CardGame.GameEvent) => {
-    //console.log('callback called', event);
+    console.log('callback called', event);
 });
 
 const gameScript = {
@@ -308,8 +308,3 @@ for (const card of cardList) {
 manager.game.script.changeScript(gameScript);
 const player = manager.createPlayer(playerArgments);
 manager.game.registerPlayer(player);
-
-for (let i = 0; i < 10; i++) {
-    console.log(manager.game.weightedRandomClonedCard()?.state.copy.name);
-}
-
