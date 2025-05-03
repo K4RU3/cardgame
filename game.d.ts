@@ -54,6 +54,11 @@ type ScriptAPI = {
     createCard: (arg?: { state?: StateType; script?: ScriptData[]; weight?: number }) => Card;
 };
 
+interface GameManager {
+    getById(id: number): GameObject | null;
+    readonly game: Game;
+}
+
 type StateType = { [key: string]: any };
 // nameを一意のキーとしたスクリプト
 type ScriptData = {
