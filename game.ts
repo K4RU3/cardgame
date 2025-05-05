@@ -102,7 +102,6 @@ export class GameManager {
 
     callEvent(event: GameEvent, selfRef: number): [boolean, GameEvent, () => void] {
         if (UNCALLABLE_EVENT.includes(event.type)) {
-            this.#eventCallback(event);
             return [false, event, () => {}];
         }
 
@@ -114,9 +113,12 @@ export class GameManager {
             return [true, event, () => {}];
         }
 
-        this.#eventCallback(JSON.parse(JSON.stringify(event)));
 
-        const afterScript = () => this.#runScripts(api, game, selfRef, 'after');
+        const afterScript = () => {
+            this.#runScripts(api, game, selfRef, 'after');
+            this.#eventCallback(JSON.parse(JSON.stringify(event)));
+        };
+
 
         return [false, event, afterScript];
     }
@@ -508,7 +510,7 @@ export class Player extends GameObject {
                 value: {
                     targetRef: this.id,
                     sourceRef: ref,
-                    amount: amount,
+                    amount: amount
                 },
             },
             this.id
