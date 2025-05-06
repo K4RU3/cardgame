@@ -102,7 +102,7 @@ export class GameManager {
 
     callEvent(event: GameEvent, selfRef: number): [boolean, GameEvent, () => void] {
         if (UNCALLABLE_EVENT.includes(event.type)) {
-            this.#eventCallback(JSON.parse(JSON.stringify(event)));
+            this.#eventCallback(event); // Uncallable は、スクリプトに送信されないので、このように処理
             return [false, event, () => {}];
         }
 

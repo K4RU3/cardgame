@@ -1,7 +1,9 @@
 import * as CardGame from './game';
 
 const manager = new CardGame.GameManager((event: CardGame.GameEvent) => {
-    console.log('callback called', event);
+    if (event.type === "registerplayer") {
+        console.log("copy from event", event.value.object.state)
+    }
 });
 
 const gameScript = {
@@ -308,3 +310,4 @@ for (const card of cardList) {
 manager.game.script.changeScript(gameScript);
 const player = manager.createPlayer(playerArgments);
 manager.game.registerPlayer(player);
+console.log("copy from player", player.state.copy)
