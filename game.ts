@@ -102,6 +102,7 @@ export class GameManager {
 
     callEvent(event: GameEvent, selfRef: number): [boolean, GameEvent, () => void] {
         if (UNCALLABLE_EVENT.includes(event.type)) {
+            this.#eventCallback(JSON.parse(JSON.stringify(event)));
             return [false, event, () => {}];
         }
 
