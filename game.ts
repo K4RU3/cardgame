@@ -199,6 +199,10 @@ export class GameManager {
         return baseAPI;
     }
 
+    setEventCallback(callback: (event: GameEvent) => void) {
+        this.#eventCallback = callback;
+    }
+
     getById(id: number): GameObject | null {
         return this.#objects[id];
     }
