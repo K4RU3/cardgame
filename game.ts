@@ -26,8 +26,8 @@ export type GameEventMap = {
 };
 
 export type EventOf<T extends keyof GameEventMap> = {
-  type: T;
-  value: GameEventMap[T];
+    type: T;
+    value: GameEventMap[T];
 };
 
 // 各イベントを統一した GameEvent 型としてユニオンに変換
@@ -35,7 +35,7 @@ export type GameEvent = {
     [K in keyof GameEventMap]: { type: K; value: GameEventMap[K] };
 }[keyof GameEventMap];
 
-const UNCALLABLE_EVENT: GameEvent['type'][] = ['registerobject', 'registerplayer', 'registercard', 'reset'];
+const UNCALLABLE_EVENT: GameEvent['type'][] = ['registerobject', 'registerplayer', 'registercard', 'reset', 'gamestart', 'gameend'];
 type StatusChangeEventType = 'heal' | 'damage' | 'recharge' | 'discharge' | 'givesanity' | 'takesanity';
 
 type ScriptAPI = {
@@ -82,7 +82,7 @@ export class GameManager {
     #allocateId = (): number => this.#objects.push(null) - 1;
 
     #register(object: GameObject, id: number) {
-        const [isCanceled, _, afterScript] = this.callEvent(
+        const [isCanceled, _] = this.callEvent(
             {
                 type: 'registerobject',
                 value: {
@@ -90,7 +90,8 @@ export class GameManager {
                     object: object,
                 },
             },
-            -1
+            -1,
+            () => {}
         );
 
         if (isCanceled) {
@@ -100,28 +101,29 @@ export class GameManager {
         this.#objects[id] = object;
     }
 
-    callEvent(event: GameEvent, selfRef: number): [boolean, GameEvent, () => void] {
+    callEvent<T extends keyof GameEventMap, R>(event: EventOf<T>, selfRef: number, editProcess: (event: EventOf<T>) => R): [EventOf<T>, R | null] {
         if (UNCALLABLE_EVENT.includes(event.type)) {
-            this.#eventCallback(event); // Uncallable は、スクリプトに送信されないので、このように処理
-            return [false, event, () => {}];
+            this.#eventCallback(event as GameEvent);
+            const result = editProcess(event);
+            return [event, result];
         }
 
         const game = this.game;
-        const api = this.#createScriptAPI(event);
+        const api = this.#createScriptAPI(event as GameEvent);
         this.#runScripts(api, game, selfRef, 'before');
 
         if (api.isCanceled) {
-            return [true, event, () => {}];
+            return [event, null];
         }
 
+        const margedEvent = this.#margeScriptAPI(api, event);
 
-        const afterScript = () => {
-            this.#runScripts(api, game, selfRef, 'after');
-            this.#eventCallback(JSON.parse(JSON.stringify(event)));
-        };
+        const result = editProcess(margedEvent);
 
+        this.#runScripts(api, game, selfRef, 'after');
+        this.#eventCallback(JSON.parse(JSON.stringify(event)));
 
-        return [false, event, afterScript];
+        return [event, result];
     }
 
     #executeScript(script: string, api: ScriptAPI) {
@@ -198,6 +200,13 @@ export class GameManager {
         };
 
         return baseAPI;
+    }
+
+    #margeScriptAPI<T extends keyof GameEventMap>(api: ScriptAPI, event: EventOf<T>): EventOf<T> {
+        return {
+            type: event.type,
+            value: api.value,
+        } as typeof event;
     }
 
     setEventCallback(callback: (event: GameEvent) => void) {
@@ -283,7 +292,7 @@ export class State {
     }
 
     set(key: string, value: any): EventOf<'changeState'> {
-        const [isCanceled, updatedEvent, afterScript] = this.#manager.deref()!.callEvent(
+        const [updatedEvent, result] = this.#manager.deref()!.callEvent(
             {
                 type: 'changeState',
                 value: {
@@ -292,18 +301,12 @@ export class State {
                     value: value,
                 },
             },
-            this.#parentRef
+            this.#parentRef,
+            (event) => {
+                this.#state[event.value.key] = event.value.value;
+                return event;
+            }
         );
-
-        if (isCanceled) {
-            return updatedEvent as EventOf<'changeState'>;
-        }
-
-        if (updatedEvent.type === 'changeState') {
-            this.#state[updatedEvent.value.key] = updatedEvent.value.value;
-        }
-
-        afterScript();
         return updatedEvent as EventOf<'changeState'>;
     }
 }
@@ -331,8 +334,8 @@ export class Script {
         return JSON.parse(JSON.stringify(this.#scripts.find((script) => script.name === name)?.scripts));
     }
 
-    changeScript(script: ScriptData): EventOf<'changeScript'> {
-        const [isCanceled, updatedEvent, afterScript] = this.#manager.deref()!.callEvent(
+    changeScript(script: ScriptData): EventOf<'changeScript'> | null {
+        const [updatedEvent, result] = this.#manager.deref()!.callEvent(
             {
                 type: 'changeScript',
                 value: {
@@ -340,28 +343,23 @@ export class Script {
                     script: script,
                 },
             },
-            this.#parentRef
+            this.#parentRef,
+            (event) => {
+                const scriptIndex = this.#scripts.findIndex((script) => script.name === updatedEvent.value.script.name);
+                if (scriptIndex === -1) {
+                    this.#scripts.push(updatedEvent.value.script);
+                } else {
+                    this.#scripts[scriptIndex] = updatedEvent.value.script;
+                }
+                return event;
+            }
         );
 
-        if (isCanceled) {
-            return updatedEvent as EventOf<'changeScript'>;
-        }
-
-        if (updatedEvent.type === 'changeScript') {
-            const scriptIndex = this.#scripts.findIndex((script) => script.name === updatedEvent.value.script.name);
-            if (scriptIndex === -1) {
-                this.#scripts.push(updatedEvent.value.script);
-            } else {
-                this.#scripts[scriptIndex] = updatedEvent.value.script;
-            }
-        }
-
-        afterScript();
-        return updatedEvent as EventOf<'changeScript'>;
+        return result;
     }
 
-    removeScript(name: string): EventOf<'removeScript'> {
-        const [isCanceled, updatedEvent, afterScript] = this.#manager.deref()!.callEvent(
+    removeScript(name: string): EventOf<'removeScript'> | null {
+        const [updatedEvent, result] = this.#manager.deref()!.callEvent(
             {
                 type: 'removeScript',
                 value: {
@@ -369,38 +367,30 @@ export class Script {
                     name: name,
                 },
             },
-            this.#parentRef
+            this.#parentRef,
+            (event) => {
+                const scriptIndex = this.#scripts.findIndex((script) => script.name === event.value.name);
+                if (scriptIndex === -1) {
+                    return event as EventOf<'removeScript'>;
+                }
+
+                this.#scripts.splice(scriptIndex, 1);
+
+                return event;
+            }
         );
 
-        if (isCanceled) {
-            return updatedEvent as EventOf<'removeScript'>;
-        }
-
-        if (updatedEvent.type === 'removeScript') {
-            const scriptIndex = this.#scripts.findIndex((script) => script.name === updatedEvent.value.name);
-            if (scriptIndex === -1) {
-                return updatedEvent as EventOf<'removeScript'>;
-            }
-
-            this.#scripts.splice(scriptIndex, 1);
-        }
-
-        afterScript();
-        return updatedEvent as EventOf<'removeScript'>;
+        return result;
     }
 }
 
 export class Game extends GameObject {
-    #turn: number;
-    #turnPlayerRef: number;
     #cardsRef: number[];
     #playersRef: number[];
     #cardWeight: number;
 
     constructor(id: number, manager: GameManager, other: { state?: stateType; script?: ScriptData[] } = {}) {
         super(id, manager, other);
-        this.#turn = 0;
-        this.#turnPlayerRef = -1;
         this.#cardsRef = [];
         this.#playersRef = [];
         this.#cardWeight = this.#calcAllCardWeight();
@@ -423,25 +413,31 @@ export class Game extends GameObject {
 
     registerPlayer(player: Player) {
         this.#playersRef.push(player.id);
-        this.managerRef.deref()!.callEvent({
-            type: 'registerplayer',
-            value: {
-                id: player.id,
-                object: player,
+        this.managerRef.deref()!.callEvent(
+            {
+                type: 'registerplayer',
+                value: {
+                    id: player.id,
+                    object: player,
+                },
             },
-        }, this.id);
+            this.id, () => {}
+        );
     }
 
     registerCard(card: Card) {
         this.#cardsRef.push(card.id);
         this.#cardWeight = this.#calcAllCardWeight();
-        this.managerRef.deref()!.callEvent({
-            type: 'registercard',
-            value: {
-                id: card.id,
-                object: card,
+        this.managerRef.deref()!.callEvent(
+            {
+                type: 'registercard',
+                value: {
+                    id: card.id,
+                    object: card,
+                },
             },
-        }, this.id);
+            this.id, () => {}
+        );
     }
 
     weightedRandomClonedCard(): Card | null {
@@ -509,37 +505,35 @@ export class Player extends GameObject {
     }
 
     #applyEvent<T extends StatusChangeEventType>(event: T, amount: number, ref: number): EventOf<T> {
-        const [isCanceled, updatedEvent, afterScript] = this.managerRef.deref()!.callEvent(
+        const [updatedEvent, result] = this.managerRef.deref()!.callEvent(
             {
                 type: event,
                 value: {
                     targetRef: this.id,
                     sourceRef: ref,
-                    amount: amount
+                    amount: amount,
                 },
             },
-            this.id
+            this.id,
+            (event) => {
+                switch (event.type) {
+                    case 'heal':
+                    case 'damage':
+                        this.#hp += (event.type === 'heal' ? 1 : -1) * updatedEvent.value.amount;
+                        break;
+                    case 'recharge':
+                    case 'discharge':
+                        this.#mp += (event.type === 'recharge' ? 1 : -1) * updatedEvent.value.amount;
+                        break;
+                    case 'givesanity':
+                    case 'takesanity':
+                        this.#sanity += (event.type === 'givesanity' ? 1 : -1) * updatedEvent.value.amount;
+                        break;
+                }
+            }
         );
 
-        if (!isCanceled && updatedEvent.type === event) {
-            switch (updatedEvent.type) {
-                case 'heal':
-                case 'damage':
-                    this.#hp += (event === 'heal' ? 1 : -1) * updatedEvent.value.amount;
-                    break;
-                case 'recharge':
-                case 'discharge':
-                    this.#mp += (event === 'recharge' ? 1 : -1) * updatedEvent.value.amount;
-                    break;
-                case 'givesanity':
-                case 'takesanity':
-                    this.#sanity += (event === 'givesanity' ? 1 : -1) * updatedEvent.value.amount;
-                    break;
-            }
-        }
-
-        afterScript();
-        return updatedEvent as EventOf<T>;
+        return updatedEvent;
     }
 
     heal(amount: number, ref?: number): EventOf<'heal'> {
@@ -573,7 +567,7 @@ export class Player extends GameObject {
             return null;
         }
 
-        const [isCanceled, updatedEvent, afterScript] = this.managerRef.deref()!.callEvent(
+        const [updatedEvent, result] = this.managerRef.deref()!.callEvent(
             {
                 type: 'draw',
                 value: {
@@ -581,20 +575,17 @@ export class Player extends GameObject {
                     cardRef: randomClonedCard.id,
                 },
             },
-            this.id
+            this.id,
+            (event) => {
+                this.addInventory(updatedEvent.value.cardRef);
+            }
         );
-
-        if (!isCanceled && updatedEvent.type === 'draw') {
-            this.addInventory(updatedEvent.value.cardRef);
-        }
-
-        afterScript();
 
         return updatedEvent as EventOf<'draw'>;
     }
 
     addInventory(cardRef: number): EventOf<'addcard'> {
-        const [isCanceled, updatedEvent, afterScript] = this.managerRef.deref()!.callEvent(
+        const [updatedEvent, result] = this.managerRef.deref()!.callEvent(
             {
                 type: 'addcard',
                 value: {
@@ -602,14 +593,12 @@ export class Player extends GameObject {
                     cardRef: cardRef,
                 },
             },
-            this.id
+            this.id,
+            (event) => {
+                this.#inventory.push(updatedEvent.value.cardRef);
+            }
         );
 
-        if (!isCanceled && updatedEvent.type === 'addcard') {
-            this.#inventory.push(updatedEvent.value.cardRef);
-        }
-
-        afterScript();
         return updatedEvent as EventOf<'addcard'>;
     }
 
@@ -618,7 +607,7 @@ export class Player extends GameObject {
             return null;
         }
 
-        const [isCanceled, updatedEvent, afterScript] = this.managerRef.deref()!.callEvent(
+        const [updatedEvent, result] = this.managerRef.deref()!.callEvent(
             {
                 type: 'removecard',
                 value: {
@@ -626,13 +615,11 @@ export class Player extends GameObject {
                     cardRef: cardRef,
                 },
             },
-            this.id
+            this.id,
+            (event) => {
+                this.#inventory.splice(this.#inventory.indexOf(cardRef), 1);
+            }
         );
-
-        if (!isCanceled && updatedEvent.type === 'removecard') {
-            this.#inventory.splice(this.#inventory.indexOf(cardRef), 1);
-            afterScript();
-        }
 
         return updatedEvent as EventOf<'removecard'>;
     }
@@ -642,7 +629,7 @@ export class Player extends GameObject {
             return null;
         }
 
-        const [isCanceled, updatedEvent, afterScript] = this.managerRef.deref()!.callEvent(
+        const [updatedEvent, result] = this.managerRef.deref()!.callEvent(
             {
                 type: 'attack',
                 value: {
@@ -651,15 +638,13 @@ export class Player extends GameObject {
                     usingCardRef: usingCardRef,
                 },
             },
-            this.id
+            this.id,
+            (event) => {
+                const target = this.managerRef.deref()!.getById(updatedEvent.value.targetRef) as Player;
+                target?.damage?.(amount, this.id);
+            }
         );
 
-        if (!isCanceled && updatedEvent.type === 'attack') {
-            const target = this.managerRef.deref()!.getById(updatedEvent.value.targetRef) as Player;
-            target?.damage?.(amount, this.id);
-        }
-
-        afterScript();
         return updatedEvent as EventOf<'attack'>;
     }
 
@@ -669,7 +654,8 @@ export class Player extends GameObject {
             return null;
         }
 
-        const [isCanceled, updatedEvent, afterScript] = this.managerRef.deref()!.callEvent(
+        // 強制呼び出しのため問題なし
+        const [updatedEvent, result] = this.managerRef.deref()!.callEvent(
             {
                 type: 'use',
                 value: {
@@ -678,10 +664,10 @@ export class Player extends GameObject {
                     targetRef: targetRef,
                 },
             },
-            card.id
+            card.id,
+            (event) => {}
         );
 
-        afterScript();
         return updatedEvent as EventOf<'use'>;
     }
 }
