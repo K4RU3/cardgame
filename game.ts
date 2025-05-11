@@ -102,14 +102,16 @@ export class GameManager {
     }
 
     callEvent<T extends keyof GameEventMap, R>(event: EventOf<T>, selfRef: number, editProcess: (event: EventOf<T>) => R): [EventOf<T>, R | null] {
+        const game = this.game;
+        const api = this.#createScriptAPI(event as GameEvent);
+
         if (UNCALLABLE_EVENT.includes(event.type)) {
+            this.#runScripts(api, game, selfRef, 'after');
             this.#eventCallback(event as GameEvent);
             const result = editProcess(event);
             return [event, result];
         }
 
-        const game = this.game;
-        const api = this.#createScriptAPI(event as GameEvent);
         this.#runScripts(api, game, selfRef, 'before');
 
         if (api.isCanceled) {
