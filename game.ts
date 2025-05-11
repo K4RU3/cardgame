@@ -106,7 +106,9 @@ export class GameManager {
         const api = this.#createScriptAPI(event as GameEvent);
 
         if (UNCALLABLE_EVENT.includes(event.type)) {
-            this.#runScripts(api, game, selfRef, 'after');
+            if (game !== null && game !== undefined) {
+                this.#runScripts(api, game, selfRef, 'after');
+            }
             this.#eventCallback(event as GameEvent);
             const result = editProcess(event);
             return [event, result];
@@ -347,11 +349,11 @@ export class Script {
             },
             this.#parentRef,
             (event) => {
-                const scriptIndex = this.#scripts.findIndex((script) => script.name === updatedEvent.value.script.name);
+                const scriptIndex = this.#scripts.findIndex((script) => script.name === event.value.script.name);
                 if (scriptIndex === -1) {
-                    this.#scripts.push(updatedEvent.value.script);
+                    this.#scripts.push(event.value.script);
                 } else {
-                    this.#scripts[scriptIndex] = updatedEvent.value.script;
+                    this.#scripts[scriptIndex] = event.value.script;
                 }
                 return event;
             }
@@ -521,15 +523,15 @@ export class Player extends GameObject {
                 switch (event.type) {
                     case 'heal':
                     case 'damage':
-                        this.#hp += (event.type === 'heal' ? 1 : -1) * updatedEvent.value.amount;
+                        this.#hp += (event.type === 'heal' ? 1 : -1) * event.value.amount;
                         break;
                     case 'recharge':
                     case 'discharge':
-                        this.#mp += (event.type === 'recharge' ? 1 : -1) * updatedEvent.value.amount;
+                        this.#mp += (event.type === 'recharge' ? 1 : -1) * event.value.amount;
                         break;
                     case 'givesanity':
                     case 'takesanity':
-                        this.#sanity += (event.type === 'givesanity' ? 1 : -1) * updatedEvent.value.amount;
+                        this.#sanity += (event.type === 'givesanity' ? 1 : -1) * event.value.amount;
                         break;
                 }
             }
@@ -579,7 +581,7 @@ export class Player extends GameObject {
             },
             this.id,
             (event) => {
-                this.addInventory(updatedEvent.value.cardRef);
+                this.addInventory(event.value.cardRef);
             }
         );
 
@@ -597,7 +599,7 @@ export class Player extends GameObject {
             },
             this.id,
             (event) => {
-                this.#inventory.push(updatedEvent.value.cardRef);
+                this.#inventory.push(event.value.cardRef);
             }
         );
 
@@ -642,7 +644,7 @@ export class Player extends GameObject {
             },
             this.id,
             (event) => {
-                const target = this.managerRef.deref()!.getById(updatedEvent.value.targetRef) as Player;
+                const target = this.managerRef.deref()!.getById(event.value.targetRef) as Player;
                 target?.damage?.(amount, this.id);
             }
         );
