@@ -4,6 +4,8 @@ export type GameEventMap = {
     registerobject: { id: number; object: GameObject };
     registerplayer: { id: number; object: Player };
     registercard: { id: number; object: Card };
+    unregisterplayer: { id: number };
+    unregistercard: { id: number };
     gamestart: {};
     gameend: { winners: string[] };
     turnstart: { playerRef: number };
@@ -35,7 +37,7 @@ export type GameEvent = {
     [K in keyof GameEventMap]: { type: K; value: GameEventMap[K] };
 }[keyof GameEventMap];
 
-const UNCALLABLE_EVENT: GameEvent['type'][] = ['registerobject', 'registerplayer', 'registercard', 'reset', 'gamestart', 'gameend'];
+const UNCALLABLE_EVENT: GameEvent['type'][] = ['registerobject', 'registerplayer', 'registercard', 'unregisterplayer', 'unregistercard', 'reset', 'gamestart', 'gameend'];
 type StatusChangeEventType = 'heal' | 'damage' | 'recharge' | 'discharge' | 'givesanity' | 'takesanity';
 
 type ScriptAPI = {
@@ -442,6 +444,33 @@ export class Game extends GameObject {
             },
             this.id, () => {}
         );
+    }
+
+    unregisterPlayer(player: Player) {
+        this.#playersRef = this.#playersRef.filter(inPlayer => inPlayer !== player.id);
+        this.managerRef.deref()!.callEvent(
+            {
+                type: 'unregisterplayer',
+                value: {
+                    id: player.id
+                }
+            },
+            this.id, () => {}
+        )
+    }
+
+    unregisterCard(card: Card) {
+        this.#cardsRef = this.#cardsRef.filter(inCard => inCard !== card.id);
+        this.#calcAllCardWeight();
+        this.managerRef.deref()!.callEvent(
+            {
+                type: 'unregistercard',
+                value: {
+                    id: card.id
+                }
+            },
+            this.id, () => {}
+        )
     }
 
     weightedRandomClonedCard(): Card | null {
