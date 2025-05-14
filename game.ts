@@ -479,7 +479,7 @@ export class Game extends GameObject {
         }
 
         const totalWeight = this.#cardWeight;
-        const cardsWeightList = this.#cardsRef.map((ref) => this.managerRef.deref()?.getById(ref) as Card).map((card) => card.state.copy['weight'] || 1);
+        const cardsWeightList = this.#cardsRef.map((ref) => this.managerRef.deref()?.getById(ref) as Card).map((card) => card.weight || 1);
         const random = Math.random() * totalWeight;
 
         // 累積重みリストを作成
