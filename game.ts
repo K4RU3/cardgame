@@ -433,7 +433,6 @@ export class Game extends GameObject {
 
     registerCard(card: Card) {
         this.#cardsRef.push(card.id);
-        this.#cardWeight = this.#calcAllCardWeight();
         this.managerRef.deref()!.callEvent(
             {
                 type: 'registercard',
@@ -444,6 +443,7 @@ export class Game extends GameObject {
             },
             this.id, () => {}
         );
+        this.#cardWeight = this.#calcAllCardWeight();
     }
 
     unregisterPlayer(player: Player) {
