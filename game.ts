@@ -47,6 +47,9 @@ type ScriptAPI = {
     value: GameEvent['value'];
     selfRef: number;
     createCard: (arg?: { state?: stateType; script?: ScriptData[]; weight?: number }) => Card;
+    useAttack(dmg: number): EventOf<'attack'> | null;
+    useState<T extends StatusChangeEventType>(amo: number, type: T): EventOf<T> | null;
+    useTryMp<R>(cost: number, func: () => R): R | null;
 };
 
 type ScriptData = {
@@ -111,13 +114,13 @@ export class GameManager {
         const game = this.game;
         const api = this.#createScriptAPI(event as GameEvent);
 
-        this.#noticeEvent(event, "before");
+        this.#noticeEvent(event, 'before');
 
         if (UNCALLABLE_EVENT.includes(event.type)) {
             if (game !== null && game !== undefined) {
                 this.#runScripts(api, game, selfRef, 'after');
             }
-            this.#noticeEvent(event, "end");
+            this.#noticeEvent(event, 'end');
             const result = editProcess(event);
             return [event, result];
         }
@@ -135,7 +138,7 @@ export class GameManager {
         const event_copy = JSON.parse(JSON.stringify(event)) as GameEvent;
         this.#noticeEvent(event_copy, 'after');
         this.#runScripts(api, game, selfRef, 'after');
-        this.#noticeEvent(event_copy, ('end'));
+        this.#noticeEvent(event_copy, 'end');
 
         return [event, result];
     }
@@ -201,7 +204,7 @@ export class GameManager {
     #createScriptAPI(event: GameEvent): ScriptAPI {
         const gameId = this.#gameid;
 
-        const baseAPI = {
+        const baseAPI: ScriptAPI = {
             type: event.type,
             get game(): Game {
                 return this.unref(gameId) as Game;
@@ -211,6 +214,29 @@ export class GameManager {
             value: event.value,
             selfRef: -1,
             createCard: (arg?: { state?: stateType; script?: ScriptData[]; weight?: number }) => this.createCard(arg),
+            useAttack: (dmg: number) => (event.type === 'use' && (baseAPI.unref(event.value.playerRef) as Player)?.attackDamage(dmg, event.value.targetRef, event.value.usingCardRef)) || null,
+            useState: function <T extends StatusChangeEventType>(amo: number, type: T): EventOf<T> | null {
+                if (event.type !== 'use') return null;
+
+                const player = baseAPI.unref(event.value.playerRef) as Player;
+                if (!player || !(player instanceof Player) || typeof player[type] !== 'function') return null;
+
+                // 呼び出しと戻り値を EventOf<T> にキャスト
+                return (player[type](amo, event.value.playerRef) as EventOf<T>) ?? null;
+            },
+            useTryMp: function <R>(cost: number, func: () => R) {
+                if (event.type !== 'use') return null;
+
+                const player = baseAPI.unref(event.value.playerRef) as Player;
+                if (!player || !(player instanceof Player)) return null;
+                
+                if (player.mp >= cost) {
+                    player.discharge(cost);
+                    return func();
+                }
+                
+                return null;
+            }
         };
 
         return baseAPI;
@@ -435,7 +461,8 @@ export class Game extends GameObject {
                     object: player,
                 },
             },
-            this.id, () => {}
+            this.id,
+            () => {}
         );
     }
 
@@ -449,36 +476,39 @@ export class Game extends GameObject {
                     object: card,
                 },
             },
-            this.id, () => {}
+            this.id,
+            () => {}
         );
         this.#cardWeight = this.#calcAllCardWeight();
     }
 
     unregisterPlayer(player: Player) {
-        this.#playersRef = this.#playersRef.filter(inPlayer => inPlayer !== player.id);
+        this.#playersRef = this.#playersRef.filter((inPlayer) => inPlayer !== player.id);
         this.managerRef.deref()!.callEvent(
             {
                 type: 'unregisterplayer',
                 value: {
-                    id: player.id
-                }
+                    id: player.id,
+                },
             },
-            this.id, () => {}
-        )
+            this.id,
+            () => {}
+        );
     }
 
     unregisterCard(card: Card) {
-        this.#cardsRef = this.#cardsRef.filter(inCard => inCard !== card.id);
+        this.#cardsRef = this.#cardsRef.filter((inCard) => inCard !== card.id);
         this.#calcAllCardWeight();
         this.managerRef.deref()!.callEvent(
             {
                 type: 'unregistercard',
                 value: {
-                    id: card.id
-                }
+                    id: card.id,
+                },
             },
-            this.id, () => {}
-        )
+            this.id,
+            () => {}
+        );
     }
 
     weightedRandomClonedCard(): Card | null {
