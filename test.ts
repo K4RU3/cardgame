@@ -1,9 +1,7 @@
 import * as CardGame from './game';
 
-const manager = new CardGame.GameManager((event: CardGame.GameEvent) => {
-    if (event.type === "registerplayer") {
-        console.log("copy from event", event.value.object.state)
-    }
+const manager = new CardGame.GameManager((event: CardGame.NoticeEvent) => {
+    console.log(event.type, event.timing)
 });
 
 const gameScript = {

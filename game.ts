@@ -24,7 +24,6 @@ export type GameEventMap = {
     changeState: { stateParentRef: number; key: string; value: any };
     changeScript: { scriptParentRef: number; script: ScriptData };
     removeScript: { scriptParentRef: number; name: string };
-    custom: { name: string; value: any };
 };
 
 export type EventOf<T extends keyof GameEventMap> = {
@@ -63,17 +62,18 @@ type ScriptData = {
     >;
 };
 
+export type NoticeEvent = GameEvent & { timing: 'before' | 'after' | 'end' };
 export class GameManager {
     #gameid: number = -1;
     #objects: (GameObject | null)[] = [];
-    #eventCallback: (event: GameEvent) => void = () => {};
+    #eventCallback: (event: NoticeEvent) => void = () => {};
 
-    constructor(callback: (event: GameEvent) => void) {
+    constructor(callback: (event: NoticeEvent) => void) {
         this.#reset(callback);
     }
 
-    #reset(callback: (event: GameEvent) => void) {
-        callback({ type: 'reset', value: {} });
+    #reset(callback: (event: NoticeEvent) => void) {
+        callback({ type: 'reset', value: {}, timing: 'end' });
         this.#objects = [];
         this.#eventCallback = callback;
         this.#gameid = this.#allocateId();
@@ -103,15 +103,21 @@ export class GameManager {
         this.#objects[id] = object;
     }
 
+    #noticeEvent<T extends keyof GameEventMap>(event: EventOf<T>, timing: NoticeEvent['timing']) {
+        this.#eventCallback({ ...(event as GameEvent), timing });
+    }
+
     callEvent<T extends keyof GameEventMap, R>(event: EventOf<T>, selfRef: number, editProcess: (event: EventOf<T>) => R): [EventOf<T>, R | null] {
         const game = this.game;
         const api = this.#createScriptAPI(event as GameEvent);
+
+        this.#noticeEvent(event, "before");
 
         if (UNCALLABLE_EVENT.includes(event.type)) {
             if (game !== null && game !== undefined) {
                 this.#runScripts(api, game, selfRef, 'after');
             }
-            this.#eventCallback(event as GameEvent);
+            this.#noticeEvent(event, "end");
             const result = editProcess(event);
             return [event, result];
         }
@@ -126,8 +132,10 @@ export class GameManager {
 
         const result = editProcess(margedEvent);
 
+        const event_copy = JSON.parse(JSON.stringify(event)) as GameEvent;
+        this.#noticeEvent(event_copy, 'after');
         this.#runScripts(api, game, selfRef, 'after');
-        this.#eventCallback(JSON.parse(JSON.stringify(event)));
+        this.#noticeEvent(event_copy, ('end'));
 
         return [event, result];
     }
@@ -215,7 +223,7 @@ export class GameManager {
         } as typeof event;
     }
 
-    setEventCallback(callback: (event: GameEvent) => void) {
+    setEventCallback(callback: (event: NoticeEvent) => void) {
         this.#eventCallback = callback;
     }
 
