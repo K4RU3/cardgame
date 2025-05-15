@@ -36,7 +36,7 @@ export type GameEvent = {
     [K in keyof GameEventMap]: { type: K; value: GameEventMap[K] };
 }[keyof GameEventMap];
 
-const UNCALLABLE_EVENT: GameEvent['type'][] = ['registerobject', 'registerplayer', 'registercard', 'unregisterplayer', 'unregistercard', 'reset', 'gamestart', 'gameend'];
+export const UNCALLABLE_EVENT: GameEvent['type'][] = ['registerobject', 'registerplayer', 'registercard', 'unregisterplayer', 'unregistercard', 'reset', 'gamestart', 'gameend'];
 type StatusChangeEventType = 'heal' | 'damage' | 'recharge' | 'discharge' | 'givesanity' | 'takesanity';
 
 type ScriptAPI = {
