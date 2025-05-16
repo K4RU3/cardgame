@@ -72,10 +72,10 @@ export class GameManager {
     #eventCallback: (event: NoticeEvent) => void = () => {};
 
     constructor(callback: (event: NoticeEvent) => void) {
-        this.#reset(callback);
+        this.reset(callback);
     }
 
-    #reset(callback: (event: NoticeEvent) => void) {
+    reset(callback: (event: NoticeEvent) => void) {
         callback({ type: 'reset', value: {}, timing: 'end' });
         this.#objects = [];
         this.#eventCallback = callback;
