@@ -77,11 +77,11 @@ export class GameManager {
 
     reset(callback?: (event: NoticeEvent) => void) {
         this.#eventCallback = callback ?? (() => {});
-        this.#eventCallback({ type: 'reset', value: {}, timing: 'end' });
         this.#objects = [];
         this.#gameid = this.#allocateId();
         const game = new Game(this.#gameid, this, {});
         this.#register(game, this.#gameid);
+        this.#eventCallback({ type: 'reset', value: {}, timing: 'end' });
     }
 
     #allocateId = (): number => this.#objects.push(null) - 1;
