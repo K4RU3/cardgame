@@ -332,7 +332,7 @@ export class State {
     }
 
     set(key: string, value: any): EventOf<'changeState'> {
-        const [updatedEvent, result] = this.#manager.deref()!.callEvent(
+        const [updatedEvent] = this.#manager.deref()!.callEvent(
             {
                 type: 'changeState',
                 value: {
@@ -375,7 +375,7 @@ export class Script {
     }
 
     changeScript(script: ScriptData): EventOf<'changeScript'> | null {
-        const [updatedEvent, result] = this.#manager.deref()!.callEvent(
+        const [,result] = this.#manager.deref()!.callEvent(
             {
                 type: 'changeScript',
                 value: {
@@ -399,7 +399,7 @@ export class Script {
     }
 
     removeScript(name: string): EventOf<'removeScript'> | null {
-        const [updatedEvent, result] = this.#manager.deref()!.callEvent(
+        const [,result] = this.#manager.deref()!.callEvent(
             {
                 type: 'removeScript',
                 value: {
@@ -576,7 +576,7 @@ export class Player extends GameObject {
     }
 
     #applyEvent<T extends StatusChangeEventType>(event: T, amount: number, ref: number): EventOf<T> {
-        const [updatedEvent, result] = this.managerRef.deref()!.callEvent(
+        const [updatedEvent] = this.managerRef.deref()!.callEvent(
             {
                 type: event,
                 value: {
@@ -638,7 +638,7 @@ export class Player extends GameObject {
             return null;
         }
 
-        const [updatedEvent, result] = this.managerRef.deref()!.callEvent(
+        const [updatedEvent] = this.managerRef.deref()!.callEvent(
             {
                 type: 'draw',
                 value: {
@@ -656,7 +656,7 @@ export class Player extends GameObject {
     }
 
     addInventory(cardRef: number): EventOf<'addcard'> {
-        const [updatedEvent, result] = this.managerRef.deref()!.callEvent(
+        const [updatedEvent] = this.managerRef.deref()!.callEvent(
             {
                 type: 'addcard',
                 value: {
@@ -678,7 +678,7 @@ export class Player extends GameObject {
             return null;
         }
 
-        const [updatedEvent, result] = this.managerRef.deref()!.callEvent(
+        const [updatedEvent] = this.managerRef.deref()!.callEvent(
             {
                 type: 'removecard',
                 value: {
@@ -687,7 +687,7 @@ export class Player extends GameObject {
                 },
             },
             this.id,
-            (event) => {
+            () => {
                 this.#inventory.splice(this.#inventory.indexOf(cardRef), 1);
             }
         );
@@ -700,7 +700,7 @@ export class Player extends GameObject {
             return null;
         }
 
-        const [updatedEvent, result] = this.managerRef.deref()!.callEvent(
+        const [updatedEvent] = this.managerRef.deref()!.callEvent(
             {
                 type: 'attack',
                 value: {
@@ -726,7 +726,7 @@ export class Player extends GameObject {
         }
 
         // 強制呼び出しのため問題なし
-        const [updatedEvent, result] = this.managerRef.deref()!.callEvent(
+        const [updatedEvent] = this.managerRef.deref()!.callEvent(
             {
                 type: 'use',
                 value: {
@@ -736,7 +736,7 @@ export class Player extends GameObject {
                 },
             },
             card.id,
-            (event) => {}
+            () => {}
         );
 
         return updatedEvent as EventOf<'use'>;
