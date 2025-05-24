@@ -1,18 +1,20 @@
-export type StateChangeEventMap = {
+/// <reference path=".gameInterface.d.ts" />
+
+type StateChangeEventMap = {
     registerobject: {
-        event: { id: number; readonly object: GameObject };
+        event: { id: number; readonly object: IGameObject };
     };
     registerplayer: {
-        event: { id: number; readonly object: Player };
+        event: { id: number; readonly object: IPlayer };
     };
     registercard: {
-        event: { id: number; readonly object: Card };
+        event: { id: number; readonly object: ICard };
     };
     unregisterplayer: {
-        event: { id: number; readonly object: Player };
+        event: { id: number; readonly object: IPlayer };
     };
     unregistercard: {
-        event: { id: number; readonly object: Card };
+        event: { id: number; readonly object: ICard };
     };
     changestate: {
         event: { readonly object: GameObject; patch: JSONPatchOperation };
@@ -20,15 +22,14 @@ export type StateChangeEventMap = {
     };
 };
 
-export type JSONPatchOperation =
-    | { op: 'add'; path: string; value: any }
+declare type JSONPatchOperation =
+    | { op: 'add'; path: string; value: StateType }
     | { op: 'remove'; path: string }
-    | { op: 'replace'; path: string; value: any }
+    | { op: 'replace'; path: string; value: StateType }
     | { op: 'move'; from: string; path: string }
-    | { op: 'copy'; from: string; path: string }
-    | { op: 'test'; path: string; value: any };
+    | { op: 'copy'; from: string; path: string };
 
-export type DummyEventMap = {
+declare type DummyEventMap = {
     gamestart: {
         event: {};
         api: {};
@@ -37,27 +38,27 @@ export type DummyEventMap = {
         event: {};
     };
     turnstart: {
-        event: { readonly player: Player };
+        event: { readonly player: IPlayer };
         api: { changePlayer: (Player) => void } & CancelableAPI;
     };
     turnend: {
-        event: { readonly player: Player };
+        event: { readonly player: IPlayer };
     };
     attack: {
-        event: { readonly attacker: Player; readonly target: Player; damage: DamageFormula };
+        event: { readonly attacker: IPlayer; readonly target: IPlayer; damage: DamageFormula };
         api: {} & CancelableAPI;
     };
     damage: {
-        event: { readonly damager: Player; readonly target: Player; damage: DamageFormula };
+        event: { readonly damager: IPlayer; readonly target: IPlayer; damage: DamageFormula };
         api: {} & CancelableAPI;
     };
     heal: {
-        event: { readonly healer: Player, readonly target: Player, amount };
+        event: { readonly healer: IPlayer; readonly target: IPlayer; amount };
         api: {} & CancelableAPI;
-    }
+    };
 };
 
-export type DamageFormula = {
+declare type DamageFormula = {
     base: number;
     bonus: number;
     mult: number;
@@ -67,19 +68,19 @@ export type DamageFormula = {
     tags: string[];
 };
 
-export type EventMap = StateChangeEventMap & DummyEventMap;
+declare type EventMap = StateChangeEventMap & DummyEventMap;
 
 type CancelableAPI = {
     cancel: () => void;
 };
 
 // 全イベントキー
-export type EventKey = keyof EventMap;
+declare type EventKey = keyof EventMap;
 // 呼び出し可能イベントキー
-export type CallableEventKey = {
+declare type CallableEventKey = {
     [K in EventKey]: EventMap[K] extends { event: any } ? K : never;
 };
 // スクリプトの干渉可能なイベントキー
-export type ExecutableEventKey = {
+declare type ExecutableEventKey = {
     [K in EventKey]: EventMap[K] extends { event: any; api: any } ? K : never;
 };
