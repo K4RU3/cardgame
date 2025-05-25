@@ -11,12 +11,6 @@ declare interface IScriptManager {
     getByEvent(type: EventKey): Script[];
 }
 
-declare type ScriptFase = 'before' | 'after';
-declare interface IScript {
-    get(type: EventKey, fase: ScriptFase): string;
-    set(type: EventKey, fase: ScriptFase): EventOf<'setscriptfase'>;
-}
-
 declare interface IGameManager {
     readonly game: Game;
 }

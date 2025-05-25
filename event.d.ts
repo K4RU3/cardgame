@@ -25,9 +25,7 @@ type StateChangeEventMap = {
 declare type JSONPatchOperation =
     | { op: 'add'; path: string; value: StateType }
     | { op: 'remove'; path: string }
-    | { op: 'replace'; path: string; value: StateType }
-    | { op: 'move'; from: string; path: string }
-    | { op: 'copy'; from: string; path: string };
+    | { op: 'replace'; path: string; value: StateType };
 
 declare type DummyEventMap = {
     gamestart: {
@@ -68,19 +66,34 @@ declare type DamageFormula = {
     tags: string[];
 };
 
-declare type EventMap = StateChangeEventMap & DummyEventMap;
-
 type CancelableAPI = {
     cancel: () => void;
 };
 
+// 全イベント
+declare type EventMap = StateChangeEventMap & DummyEventMap;
 // 全イベントキー
-declare type EventKey = keyof EventMap;
+declare type EventKey = Extract<keyof EventMap, string>;
 // 呼び出し可能イベントキー
 declare type CallableEventKey = {
     [K in EventKey]: EventMap[K] extends { event: any } ? K : never;
-};
-// スクリプトの干渉可能なイベントキー
+}[EventKey];
+// 実行可能なイベントキー
 declare type ExecutableEventKey = {
-    [K in EventKey]: EventMap[K] extends { event: any; api: any } ? K : never;
-};
+    [K in CallableEventKey]: EventMap[K] extends { api: any } ? K : never;
+}[EventKey];
+// 呼び出し可能イベント
+declare type CallableEvent = {
+    [K in CallableEventKey]: {
+        type: K;
+    } & EventMap[K]['event'];
+}[CallableEventKey];
+// 実行可能イベント
+declare type ExecutableEvent = {
+    [K in ExecutableEventKey]: {
+        type: K;
+    } & EventMap[K]['event'];
+}[ExecutableEventKey];
+// イベント取り出し
+declare type CallableEventOf<T extends CallableEventKey> = Extract<CallableEvent, { type: T }>;
+declare type ExecutableEventOf<T extends ExecutableEventKey> = Extract<ExecutableEvent, { type: T }>;
